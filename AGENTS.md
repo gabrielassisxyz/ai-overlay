@@ -16,7 +16,8 @@
   contract (config schema, capture / LLM / TUI surface, error semantics) and
   [docs/architecture-decisions.md](docs/architecture-decisions.md) for the why.
 - **Setup:** `uv sync` (creates `.venv` with dev tools) then `bin/install-hooks` (once).
-- **Run:** `uv run python -m ai_overlay --profile <name>` *(entrypoint lands with the MVP)*.
+- **Run:** `uv run python -m ai_overlay [--profile <name>] [question]` launches the TUI;
+  add `--print` for the headless one-shot (streams the answer to stdout, no TTY).
 - **Test:** `uv run pytest` (none yet — planning stage).
 - **All CI checks:** `bin/ci` (ruff format + lint, pytest, pip-audit).
 - **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write,

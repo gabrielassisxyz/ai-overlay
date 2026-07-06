@@ -1,7 +1,8 @@
-"""Wiring tests for the Milestone A entrypoint (docs/spec.md §6-A).
+"""Wiring tests for the headless (``--print``) entrypoint (docs/spec.md §6-A).
 
 config/capture/llm are exercised for real elsewhere; here we only check the
 orchestration: real config + prompt file, faked capture + LLM, output to a buffer.
+The TUI is the default now, so these exercise the ``--print`` one-shot path.
 """
 
 from __future__ import annotations
@@ -47,7 +48,9 @@ def test_run_streams_answer_to_out(config_file, monkeypatch):
     monkeypatch.setattr(entry, "stream_reply", fake_stream)
 
     out = io.StringIO()
-    code = entry.run(["--config", str(config_file), "which", "item?"], out=out)
+    code = entry.run(
+        ["--print", "--config", str(config_file), "which", "item?"], out=out
+    )
 
     assert code == 0
     assert out.getvalue() == "Hello world\n"
@@ -65,7 +68,7 @@ def test_run_reports_capture_error(config_file, monkeypatch, capsys):
 
     monkeypatch.setattr(entry, "capture", boom)
 
-    code = entry.run(["--config", str(config_file)], out=io.StringIO())
+    code = entry.run(["--print", "--config", str(config_file)], out=io.StringIO())
 
     assert code == 1
     assert "grim not found" in capsys.readouterr().err
