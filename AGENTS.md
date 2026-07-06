@@ -9,11 +9,14 @@
 > per-task profile injected, read the answer. Task behavior is driven by `profiles/*.md`.
 
 ## Stack & Commands
-- **Stack:** Python (uv-managed, `.python-version` = 3.13) + PyQt6 overlay + OpenAI-compatible
-  `openai` client → local LiteLLM proxy (`http://localhost:4000/v1`). See
+- **Stack:** Python (uv-managed, `.python-version` = 3.13) + Textual TUI (floating terminal,
+  MVP surface) + OpenAI-compatible `openai` client → local LiteLLM proxy
+  (`http://localhost:4000/v1`, streaming, multimodal). A `wlr-layer-shell` GTK4 overlay is a
+  deliberate later phase, not the MVP. See [docs/spec.md](docs/spec.md) for the behavioral
+  contract (config schema, capture / LLM / TUI surface, error semantics) and
   [docs/architecture-decisions.md](docs/architecture-decisions.md) for the why.
 - **Setup:** `uv sync` (creates `.venv` with dev tools) then `bin/install-hooks` (once).
-- **Run:** `uv run python overlay.py` *(entrypoint lands with the MVP)*.
+- **Run:** `uv run python -m ai_overlay --profile <name>` *(entrypoint lands with the MVP)*.
 - **Test:** `uv run pytest` (none yet — planning stage).
 - **All CI checks:** `bin/ci` (ruff format + lint, pytest, pip-audit).
 - **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write,
@@ -21,11 +24,17 @@
   dangerous permissions, e.g. `ai-jail claude --dangerously-skip-permissions`. Config: `.ai-jail`.
 
 ## Scope (current)
-- **Current scope:** planning-stage MVP — a personal, local-only overlay for reading game
-  screenshots (Brotato etc.) and getting item advice; behavior via swappable text profiles.
-  Don't expand beyond it without a present need (no always-on HUD, no exclusive-fullscreen
-  support, no provider abstraction — the proxy already gives that). If a change drifts past
-  it, STOP and flag it.
+- **Current scope:** planning-stage MVP — a personal, local-only hotkey-summoned TUI that
+  captures the screen and asks the LLM about it. Two framings — "advise on my build/deck" and
+  "answer a question about what's on screen" — are the SAME mechanism: capture + a per-task
+  profile prompt → a streamed answer, with in-session follow-up. Profiles are TOML blocks in
+  `~/.config/ai-overlay/config.toml` pointing at prompt files under `profiles/*.md`; each
+  profile sets its capture mode (fullscreen / active-window / region). Invocation is a Hyprland
+  keybind calling the entrypoint with `--profile`.
+- Don't expand beyond it without a present need: no persistent/always-on HUD, no
+  `wlr-layer-shell` overlay yet (deliberate later phase), no exclusive-fullscreen support, no
+  voice, no text-only-without-capture mode, no provider abstraction (the proxy already gives
+  that). If a change drifts past it, STOP and flag it.
 
 ## Tests (TDD)
 - Every feature is born with a test; every bugfix with a regression test.
@@ -63,7 +72,13 @@
 ## Common hurdles (append as discovered)
 - `bin/ci` tolerates `pytest` exit code 5 (no tests collected) while none exist; it fails on
   any real test failure and enforces strictly the moment the first test lands.
-- Runtime deps (PyQt6, openai) are declared in `pyproject.toml` only once code imports them —
-  `dependencies` is intentionally empty during planning.
-- PyQt6 on Wayland may need an env var / Hyprland window rule; note the exact fix here when hit.
+- Runtime deps (textual, openai, pillow) are declared in `pyproject.toml` only once code
+  imports them — `dependencies` is intentionally empty during planning.
+- The TUI runs in a floating terminal — float it with a Hyprland window rule (note the exact
+  rule here once pinned). The later `wlr-layer-shell` overlay (GTK4 + gtk4-layer-shell) is what
+  will draw above fullscreen; don't reach for it until the TUI MVP proves the idea.
 - The LiteLLM proxy must be running for the app to work; a failed call should say so loudly.
+- The API key comes only from env (`AI_OVERLAY_API_KEY` → `OPENAI_API_KEY`); the proxy rejects
+  the `sk-noop` placeholder. A Hyprland-keybind `exec` does NOT inherit your interactive shell
+  env — decide in B/C how the launched app gets the key (Hyprland `env =`, or a gitignored env
+  file the app loads). Never commit the key.
