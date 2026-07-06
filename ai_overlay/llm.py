@@ -23,15 +23,15 @@ def make_client(base_url: str, api_key: str) -> OpenAI:
     return OpenAI(base_url=base_url, api_key=api_key)
 
 
-def build_messages(
-    system_prompt: str,
-    user_text: str | None,
-    image_png: bytes | None,
-) -> list[dict]:
-    """Assemble a chat payload: system prompt + user text and/or a base64 image."""
+def build_user_turn(text: str | None, image_png: bytes | None) -> dict:
+    """One ``user`` turn: optional text plus an optional base64 image attachment.
+
+    The TUI assembles a payload as ``[system] + history + this turn`` so the *current*
+    profile's system prompt leads every call (hot-reload on ``/profile`` switch).
+    """
     content: list[dict] = []
-    if user_text:
-        content.append({"type": "text", "text": user_text})
+    if text:
+        content.append({"type": "text", "text": text})
     if image_png is not None:
         encoded = base64.b64encode(image_png).decode("ascii")
         content.append(
@@ -40,9 +40,18 @@ def build_messages(
                 "image_url": {"url": f"data:image/png;base64,{encoded}"},
             }
         )
+    return {"role": "user", "content": content}
+
+
+def build_messages(
+    system_prompt: str,
+    user_text: str | None,
+    image_png: bytes | None,
+) -> list[dict]:
+    """Assemble a one-shot chat payload: system prompt + a single user turn."""
     return [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": content},
+        build_user_turn(user_text, image_png),
     ]
 
 
