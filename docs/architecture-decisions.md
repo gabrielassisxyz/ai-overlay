@@ -12,31 +12,50 @@ single fact removes most of the hard problems.
 
 ---
 
-## Decision 1 — Stack: Python + PyQt6
+## Decision 1 — Stack: Python + Textual (TUI)
 
-**Chosen: Python + PyQt6.**
+**Chosen: Python + Textual**, a floating-terminal TUI summoned by a Hyprland
+keybind. A `wlr-layer-shell` GTK4 overlay is the intended "make it right" surface
+later — deliberately **not** the MVP.
+
+### Revised from an earlier PyQt6 pick
+
+An earlier pass chose Python + **PyQt6** (a frameless always-on-top QWidget). The
+requirements interview kept Python but moved the MVP surface to a **TUI**: the
+target is Omarchy (keyboard-driven Hyprland), streaming Markdown + a text input +
+in-session follow-up are what Textual does out of the box, and a floating terminal
+pinned by a Hyprland window rule already "sits on top" of the windowed/borderless
+games in scope. The polished transparent overlay (drawing above even fullscreen)
+is a real later phase, and its Wayland-native form is `wlr-layer-shell` + GTK4
+(gtk4-layer-shell), not PyQt6 — Qt's layer-shell story on Wayland is weak.
 
 ### Options
 
-#### Python + PyQt6 — chosen
+#### Python + Textual (TUI) — chosen
 
 Pros:
-- Shortest path to a working MVP. Overlay + input + response + screenshot can
-  fit in a single ~300-line file.
-- The official `anthropic`/OpenAI Python SDKs are clean and support streaming
-  (response rendered incrementally). We talk to LiteLLM over the OpenAI-compatible
-  client, which is well supported.
-- Screenshots are trivial: `subprocess` calling `grim` (ships with Omarchy) →
-  bytes → base64. No extra library.
-- Frameless, always-on-top, transparent windows work well under Qt on Wayland.
-- Customization becomes "edit a `.md` profile file", which matches the goal of
-  injecting per-task context.
-- Distribution for personal use is simple: a `venv` plus a Hyprland keybind.
+- Shortest path to the actual MVP feature set: a streaming response area, a
+  message input, and multi-turn follow-up are built-in Textual widgets; Markdown
+  (what LLM answers are) renders natively.
+- Keyboard-driven and terminal-native — matches Omarchy's ergonomics.
+- Same trivial screenshot path (`subprocess` → `grim`/`slurp`) and the same
+  OpenAI-compatible `openai` streaming client.
+- Runs headless in tests via Textual's `run_test` pilot harness.
+- Customization stays "edit a `.md` profile file".
 
 Cons:
-- The UI is functional, not beautiful. Styling Qt is more work than CSS.
-- PyQt on Wayland occasionally needs an env var / window rule tweak.
-- Packaging for redistribution is awkward (irrelevant for personal use).
+- It's a terminal window floated by a Hyprland rule, not a bespoke transparent
+  overlay — fine for the windowed/borderless games in scope, but the sleek
+  always-on-top look waits for the layer-shell phase.
+- No exclusive-fullscreen coverage (out of scope anyway; borderless is the out).
+
+#### Python + PyQt6 (GUI overlay) — superseded
+
+The prior pick — a frameless transparent QWidget is a nicer "overlay" shape, but
+styling Qt is more work than the TUI, Qt's Wayland/layer-shell support is weak, and
+it doesn't match the keyboard-first flow. Kept only as a reference for what the
+eventual overlay should feel like; the real overlay phase will be GTK4 +
+gtk4-layer-shell, not Qt.
 
 #### Electron / web
 
@@ -60,12 +79,13 @@ matters at distribution time.
 
 ### Rationale
 
-The brief is a **simple MVP** that is **easy to customize**. Python delivers both
-with the least code and the fewest moving parts — it reaches "it works" fastest,
-and can evolve from there. Tauri/Electron are better *destinations* (polished UI,
-light binary) but worse *starting points*: doing them first is optimizing before
-there's anything to optimize. Path: validate in Python, migrate later if the UI
-warrants it.
+The brief is a **simple, easy-to-customize MVP** whose UX centerpiece is streaming
+an LLM's Markdown answer with follow-up. Python + Textual reaches "it works"
+fastest for exactly that shape, stays keyboard-native for Omarchy, and tests
+headless. Electron/Tauri remain better *destinations* than *starting points*
+(optimizing before there's anything to optimize); the prettier transparent overlay
+is a deliberate later phase (GTK4 + `wlr-layer-shell`), not a reason to slow the
+MVP.
 
 ---
 
@@ -205,12 +225,32 @@ format that "just works", so it is the MVP choice; the HUD mode is deferred.
 
 ## Proposed MVP shape (for the follow-up implementation plan)
 
-- `overlay.py` — frameless, always-on-top `QWidget`: a message input, a response
-  area (streaming), a "capture + send" action.
-- Screenshot: `grim` (full screen) or `grim` + `slurp` (region) → base64.
-- LLM call: OpenAI-compatible client → `http://localhost:4000/v1`, model and
-  system context taken from the active profile.
-- Profiles: `profiles/*.md` — injected context + model + screenshot-by-default
-  flag.
-- Trigger: Hyprland keybind toggles the overlay (via a socket/signal to a running
-  instance, or a fresh launch for the first cut).
+- `ai_overlay/` package, run as `python -m ai_overlay --profile <name>` from a
+  Hyprland keybind. Flat, small modules:
+  - `config.py` — load `~/.config/ai-overlay/config.toml`; resolve a profile to
+    (capture mode, system-prompt file, model). Typed dataclasses; a clear error on
+    an unknown profile.
+  - `capture.py` — `capture(mode) -> PNG bytes` via `grim` (fullscreen / output),
+    `grim` + `slurp` (region), or `hyprctl activewindow` geometry (active window);
+    downscale before returning (cost + exposure). Subprocess runner injected so
+    tests use a named fake — never real `grim`.
+  - `llm.py` — OpenAI-compatible `openai` client pinned to
+    `http://localhost:4000/v1`; `stream_reply(messages) -> Iterator[str]`;
+    multimodal message built with the image as a base64 data URL; talks only to
+    localhost; a failed call fails loudly. Client injected for tests.
+  - `app.py` — Textual TUI: shows the profile, streams the answer, a text input for
+    follow-up, conversation history in memory for the session.
+  - `__main__.py` — arg parse (`--profile`, optional initial text) and wiring.
+- Profiles: TOML blocks in `config.toml` → `profiles/*.md` prompt files; each sets
+  its capture mode. Default model `kimi-k2.7` (Decision 2).
+- Trigger: Hyprland keybind runs a fresh instance (no daemon for the first cut); a
+  Hyprland window rule floats + pins the terminal.
+
+Milestones:
+- **A — core loop, no TUI:** `config` + `capture` + `llm` wired into a one-shot
+  that streams the answer to stdout. Proves capture → LiteLLM → answer end-to-end
+  before any UI. The "validate the idea before infra" checkpoint.
+- **B — the MVP:** Textual TUI on top of A, adding the input box + in-session
+  follow-up.
+- **C — widen:** active-window + region capture modes; a second profile; the
+  Hyprland keybind + float rule documented.
