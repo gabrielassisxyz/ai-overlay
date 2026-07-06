@@ -1,0 +1,26 @@
+[project]
+name = "ai-overlay"
+version = "0.0.0"
+description = "A customizable AI assistant overlay for Linux (Hyprland / Wayland)."
+requires-python = ">=3.12"
+# Runtime deps land here as code is written. The architecture doc commits to PyQt6
+# (the overlay) and the OpenAI-compatible `openai` client (the LiteLLM proxy); add
+# each when overlay.py first imports it, so the harness only carries what's in use.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15",
+    "pytest>=8.0",
+    "pip-audit>=2.7",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# Starter set: pyflakes (F), pycodestyle (E), isort (I), bugbear (B), pyupgrade (UP).
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

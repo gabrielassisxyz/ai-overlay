@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# The exact checks CI runs — keep this and .github/workflows/ci.yml in lockstep so
+# "green locally" means "green in CI". Non-zero on any failure.
+set -euo pipefail
+
+echo "==> ruff format"; uv run ruff format --check .
+echo "==> ruff lint";   uv run ruff check .
+
+echo "==> test"
+# Planning stage: no tests yet. pytest exits 5 when it collects nothing; treat ONLY
+# that as OK. A real failure (exit 1) still fails CI. This flips to strict the moment
+# the first test lands — no edit needed here.
+uv run pytest || { code=$?; [ "$code" -eq 5 ] || exit "$code"; echo "    (no tests collected yet)"; }
+
+echo "==> audit";       uv run pip-audit
+echo "CI green."
