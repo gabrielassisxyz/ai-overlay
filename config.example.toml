@@ -1,0 +1,22 @@
+# Copy to ~/.config/ai-overlay/config.toml and adjust. Contract: docs/spec.md §2.
+# No secret is set here; the LiteLLM proxy holds the real vendor keys.
+
+default_profile = "generic"
+
+# base_url = "http://localhost:4000/v1"   # LiteLLM proxy (default)
+# model = "kimi-k2.7"                      # default model; a profile may override
+# max_image_width = 1280                   # screenshot downscaled to this width
+
+# --- Proxy token (just the token for LiteLLM, not a vendor key) ---
+# Precedence: api_key > api_key_env > $AI_OVERLAY_API_KEY > $OPENAI_API_KEY > placeholder.
+# api_key_env = "AI_OVERLAY_API_KEY"   # read the token from this env var (no secret in config)
+# api_key = "sk-..."                   # raw token: works for keybind launch, but NEVER commit it
+
+[profiles.generic]
+system_prompt_file = "~/.config/ai-overlay/profiles/generic.md"
+capture = "fullscreen"
+
+[profiles.brotato]
+system_prompt_file = "~/.config/ai-overlay/profiles/brotato.md"
+capture = "fullscreen"
+# model = "gemini-3.5-flash"   # escalate to stronger vision if item reading is weak
