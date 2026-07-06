@@ -210,6 +210,28 @@ panel already covers it.
 Maximum usefulness with minimum Wayland friction. The summoned panel is the
 format that "just works", so it is the MVP choice; the HUD mode is deferred.
 
+### Refined in Milestone B — attachment model + profile hot-reload
+
+Building B surfaced two behavioral choices the earlier prose left implicit; the
+maintainer settled them, so they are recorded here (the contract lives in spec §5).
+
+- **Capture is an attachment, not an implicit act.** A screenshot is *staged* and
+  sent with the next message. `auto_capture=true` stages+sends on launch (keeps the
+  summon-and-ask flow); `auto_capture=false` opens idle and `/capture` stages on
+  demand. This matches the intended use — leave the panel open, capture at a decision
+  point, type, send together — and folds "follow-up" (send with no new shot) and
+  "re-look" (`/capture` again) into one model instead of a special `/recapture`. The
+  screenshot *hotkey* (staging without typing `/capture`) is the only piece left for C.
+- **`/profile` hot-reloads.** Rejected alternative: freeze the system prompt at the
+  first turn (switching only changes the model) — technically simplest but nearly
+  useless mid-session and confusing. Chosen: rebuild `[system(active profile)] +
+  history + turn` on every send, so a switch applies the new prompt/model from the
+  next message while keeping the conversation and the staged image. The known cost —
+  earlier turns were written under the old persona — is mitigated cheaply: accept it
+  (the current system prompt dominates), prepend a one-line transition note so the
+  model sees an explicit pivot, and write profiles defensively about a possibly stale
+  image. A "hard switch" that drops history was rejected (contradicts keeping context).
+
 ---
 
 ## Open items / risks

@@ -24,22 +24,24 @@ def _chunk(content: str | None):
 
 
 class FakeClient:
-    """Records each create()'s messages and replays canned deltas (or raises)."""
+    """Records each create()'s model + messages and replays deltas (or raises)."""
 
     def __init__(self, deltas=None, error: Exception | None = None):
         self.calls: list[list[dict]] = []
+        self.models: list[str] = []
         self._deltas = deltas or ["Hello", " world"]
         self._error = error
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
     def _create(self, *, model, messages, stream):
         self.calls.append(messages)
+        self.models.append(model)
         if self._error is not None:
             raise self._error
         return iter(_chunk(d) for d in self._deltas)
 
 
-def _write_config(tmp_path):
+def _write_config(tmp_path, *, auto_capture=True):
     """A config with two profiles so /profile switching has somewhere to go."""
     (tmp_path / "generic.md").write_text("You are helpful.", encoding="utf-8")
     (tmp_path / "deck.md").write_text("You advise on decks.", encoding="utf-8")
@@ -47,6 +49,7 @@ def _write_config(tmp_path):
     config.write_text(
         f"""
         default_profile = "generic"
+        auto_capture = {str(auto_capture).lower()}
         [profiles.generic]
         system_prompt_file = "{tmp_path / "generic.md"}"
         [profiles.deck]
@@ -58,12 +61,12 @@ def _write_config(tmp_path):
     return load_config(config)
 
 
-def _make_app(tmp_path, *, client, question="what is this?"):
-    config = _write_config(tmp_path)
-    calls = {}
+def _make_app(tmp_path, *, client, question="what is this?", auto_capture=True):
+    config = _write_config(tmp_path, auto_capture=auto_capture)
+    calls = {"captures": []}
 
     def fake_capture(mode, *, max_width):
-        calls["capture"] = (mode, max_width)
+        calls["captures"].append((mode, max_width))
         return b"png-bytes"
 
     app = OverlayApp(
@@ -80,44 +83,105 @@ def _statics_text(app) -> str:
     return "\n".join(str(w.render()) for w in app.query(Static))
 
 
-def test_first_turn_captures_and_streams(tmp_path):
+def _turn_text(turn: dict) -> str:
+    """Extract the text of a user turn (content is a list of typed parts)."""
+    return " ".join(p["text"] for p in turn["content"] if p.get("type") == "text")
+
+
+def test_launch_auto_captures_and_streams(tmp_path):
     client = FakeClient(deltas=["Hel", "lo"])
 
     async def scenario():
         app, calls = _make_app(tmp_path, client=client)
         async with app.run_test():
             await app.workers.wait_for_complete()
-            assert calls["capture"] == ("fullscreen", 1280)
-            # The first request carries the system prompt + the captured image.
+            assert calls["captures"] == [("fullscreen", 1280)]
+            # The first request leads with the active profile's system prompt + image.
             first = client.calls[0]
             assert first[0] == {"role": "system", "content": "You are helpful."}
-            assert app.messages[-1] == {"role": "assistant", "content": "Hello"}
+            assert app.history[-1] == {"role": "assistant", "content": "Hello"}
             assert any(w.source == "Hello" for w in app.query(Markdown))
 
     asyncio.run(scenario())
 
 
-def test_follow_up_continues_conversation_without_recapture(tmp_path):
+def test_follow_up_continues_without_recapture(tmp_path):
     client = FakeClient(deltas=["ok"])
 
     async def scenario():
         app, calls = _make_app(tmp_path, client=client)
         async with app.run_test() as pilot:
             await app.workers.wait_for_complete()
-            calls.pop("capture")  # forget the first-turn capture
 
             app.query_one("#prompt", Input).value = "and now?"
             await pilot.press("enter")
             await app.workers.wait_for_complete()
 
-            # A follow-up never re-captures (spec §5).
-            assert "capture" not in calls
-            # It appends to the same conversation and streams a fresh answer.
-            assert {"role": "user", "content": "and now?"} in app.messages
-            assert app.messages[-1] == {"role": "assistant", "content": "ok"}
-            # The second request replays the growing history (2 turns so far).
+            # A plain follow-up never re-captures (only the launch shot was taken).
+            assert calls["captures"] == [("fullscreen", 1280)]
+            assert _turn_text(app.history[-2]) == "and now?"
+            assert app.history[-1] == {"role": "assistant", "content": "ok"}
             assert len(client.calls) == 2
-            assert {"role": "user", "content": "and now?"} in client.calls[1]
+
+    asyncio.run(scenario())
+
+
+def test_capture_command_stages_a_shot_sent_with_next_message(tmp_path):
+    client = FakeClient(deltas=["done"])
+
+    async def scenario():
+        # auto_capture off: the overlay opens idle and we drive capture by hand.
+        app, calls = _make_app(tmp_path, client=client, auto_capture=False)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            assert calls["captures"] == []  # nothing captured on launch
+            assert client.calls == []  # nothing sent on launch
+
+            app.query_one("#prompt", Input).value = "/capture"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            assert app.pending_image == b"png-bytes"
+            assert "attached" in _statics_text(app)
+
+            app.query_one("#prompt", Input).value = "what to pick?"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+
+            # Exactly one capture, and the message carried both text and the image.
+            assert calls["captures"] == [("fullscreen", 1280)]
+            sent = client.calls[0][-1]
+            assert _turn_text(sent) == "what to pick?"
+            assert any(p.get("type") == "image_url" for p in sent["content"])
+            assert app.pending_image is None  # consumed by the send
+
+    asyncio.run(scenario())
+
+
+def test_profile_switch_hot_reloads_prompt_and_model(tmp_path):
+    client = FakeClient(deltas=["x"])
+
+    async def scenario():
+        app, _ = _make_app(tmp_path, client=client)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()  # first turn under 'generic'
+            assert client.models[0] == "kimi-k2.7"
+
+            app.query_one("#prompt", Input).value = "/profile deck"
+            await pilot.press("enter")
+            await pilot.pause()
+            assert app.active_profile.name == "deck"
+
+            app.query_one("#prompt", Input).value = "go"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+
+            # The next send rebuilds the system message from 'deck' and uses its model.
+            second = client.calls[1]
+            assert second[0] == {"role": "system", "content": "You advise on decks."}
+            assert client.models[1] == "deck-model"
+            # The transition note (mitigation B) is prepended to that message.
+            assert "switched to profile 'deck'" in _turn_text(second[-1])
+            assert "go" in _turn_text(second[-1])
 
     asyncio.run(scenario())
 
@@ -139,36 +203,6 @@ def test_profile_list_marks_the_active_one(tmp_path):
     asyncio.run(scenario())
 
 
-def test_profile_switch_changes_model_for_next_ask(tmp_path):
-    client = FakeClient(deltas=["done"])
-
-    async def scenario():
-        app, _ = _make_app(tmp_path, client=client)
-        async with app.run_test() as pilot:
-            await app.workers.wait_for_complete()
-
-            app.query_one("#prompt", Input).value = "/profile deck"
-            await pilot.press("enter")
-            await pilot.pause()
-            assert app.active_profile.name == "deck"
-
-            # The switch does not rewrite history nor re-capture; it changes the model
-            # for the next ask. Verify by streaming a follow-up under the new profile.
-            captured: list[str] = []
-
-            def create(*, model, messages, stream):
-                captured.append(model)
-                return iter([])
-
-            client.chat.completions.create = create
-            app.query_one("#prompt", Input).value = "go"
-            await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            assert captured == ["deck-model"]
-
-    asyncio.run(scenario())
-
-
 def test_llm_error_surfaces_without_crashing(tmp_path):
     client = FakeClient(error=OpenAIError("connection refused"))
 
@@ -179,8 +213,8 @@ def test_llm_error_surfaces_without_crashing(tmp_path):
 
             assert "error:" in _statics_text(app)
             assert "LiteLLM proxy" in _statics_text(app)
-            # No assistant turn was recorded, and the input is usable again.
-            assert not any(m.get("role") == "assistant" for m in app.messages)
+            # No assistant turn recorded, and the input is usable again.
+            assert not any(m.get("role") == "assistant" for m in app.history)
             assert app.query_one("#prompt", Input).disabled is False
 
     asyncio.run(scenario())

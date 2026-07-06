@@ -16,6 +16,9 @@ DEFAULT_BASE_URL = "http://localhost:4000/v1"
 DEFAULT_MODEL = "kimi-k2.7"
 DEFAULT_MAX_IMAGE_WIDTH = 1280
 DEFAULT_CAPTURE = "fullscreen"
+# When true, the TUI captures + sends automatically on launch (summon-and-ask). When
+# false it opens idle and the user stages a shot with /capture (docs/spec.md §5).
+DEFAULT_AUTO_CAPTURE = True
 CAPTURE_MODES = ("fullscreen", "active-window", "region")
 # Env vars checked, in order, when the config names no key. Matches docs/spec.md §2.
 DEFAULT_API_KEY_ENVS = ("AI_OVERLAY_API_KEY", "OPENAI_API_KEY")
@@ -56,6 +59,7 @@ class Config:
     profiles: dict[str, Profile]
     api_key: str | None = None
     api_key_env: str | None = None
+    auto_capture: bool = DEFAULT_AUTO_CAPTURE
 
     def resolve(self, name: str | None) -> Profile:
         """Pick ``name`` (or the default). Unknown names fail listing the options."""
@@ -87,6 +91,7 @@ def load_config(path: Path) -> Config:
     base_url = raw.get("base_url", DEFAULT_BASE_URL)
     model = raw.get("model", DEFAULT_MODEL)
     max_image_width = raw.get("max_image_width", DEFAULT_MAX_IMAGE_WIDTH)
+    auto_capture = raw.get("auto_capture", DEFAULT_AUTO_CAPTURE)
     api_key = raw.get("api_key")
     api_key_env = raw.get("api_key_env")
 
@@ -114,6 +119,7 @@ def load_config(path: Path) -> Config:
         profiles=profiles,
         api_key=api_key,
         api_key_env=api_key_env,
+        auto_capture=auto_capture,
     )
 
 

@@ -41,6 +41,7 @@ about what's on screen" are the same mechanism; only the profile's prompt differ
 | `base_url` | `http://localhost:4000/v1` | LiteLLM endpoint. Only host the app talks to. |
 | `model` | `kimi-k2.7` | Default model; a profile may override it. |
 | `max_image_width` | `1280` | Screenshot is downscaled to this width before sending (cost + exposure). |
+| `auto_capture` | `true` | `true`: the TUI captures + sends on launch (summon-and-ask). `false`: it opens idle; stage a shot with `/capture`. |
 | `api_key` | *(unset)* | Raw proxy token. Works for keybind launch, but plaintext — never commit it. |
 | `api_key_env` | *(unset)* | Name of an env var to read the token from, instead of the default chain. |
 
@@ -97,18 +98,30 @@ about what's on screen" are the same mechanism; only the profile's prompt differ
 
 ## 5. Interaction contract (TUI — Milestone B)
 
+The interaction is an **attachment** model: a screenshot is staged as a *pending
+attachment* and sent together with your message. Each send builds the payload as
+`[system(active profile)] + history + turn` — the current profile's prompt leads
+every call.
+
 - **Launch:** `python -m ai_overlay [--profile <name>] [initial question...]`, wired
   to a Hyprland keybind; a Hyprland window rule floats + pins the terminal.
-- **First turn:** on launch, capture per the active profile's mode and send it with
-  the initial question text (if any) or profile-only; stream the answer.
-- **Follow-up:** plain text in the input box continues the same conversation. By
-  default a follow-up does **not** re-capture the screen (re-looking is a future
-  `/recapture`, out of scope now).
+  - `auto_capture = true` (default): capture per the active profile's mode and send
+    immediately — with the initial question if given, else profile-only (summon-and-ask).
+  - `auto_capture = false`: open idle. Nothing is captured or sent until the user
+    stages a shot with `/capture` and sends a message.
+- **Message:** plain text in the input box sends a turn — with the pending screenshot
+  if one is staged, else text-only — and continues the same conversation. A message
+  with no freshly staged shot does **not** re-capture (a plain follow-up).
 - **Commands** (only a leading `/` is parsed — this is *not* a general command
-  framework; the only command is `/profile`):
+  framework; the commands are `/profile` and `/capture`):
+  - `/capture` → (re)capture per the active profile's mode and stage the image for the
+    next message. This is the on-demand / re-look path. *(A screenshot hotkey that does
+    this without typing `/capture` is Milestone C.)*
   - `/profile` → list available profiles, marking the active one.
-  - `/profile <name>` → switch the active profile for **subsequent** asks. Does not
-    rewrite history and does not re-capture on its own.
+  - `/profile <name>` → **hot-reload** the active profile. Past turns are not rewritten,
+    but the leading system message and model are rebuilt from the new profile on the
+    next send; a short transition note is prepended to that message so the model has an
+    explicit pivot. Does not re-capture on its own.
 - **Quit:** `Esc` or `Ctrl+C`.
 
 ---
@@ -119,10 +132,12 @@ about what's on screen" are the same mechanism; only the profile's prompt differ
   streams the answer to stdout for the default (or `--profile`) profile.
   *Done when:* running it captures, calls the proxy, and streams a real answer;
   `config`/`capture`/`llm` unit-tested with fakes; `bin/ci` green.
-- **B — the MVP.** Textual TUI over A: streaming answer pane, input box, in-session
-  follow-up, `default_profile` + `/profile` command.
-  *Done when:* summon → ask → read → follow-up → quit works end-to-end; a `run_test`
-  smoke test passes; `bin/ci` green.
+- **B — the MVP.** Textual TUI over A: streaming answer pane, input box, the
+  attachment model (`/capture` stages a shot sent with the next message; `auto_capture`
+  gates the launch shot), in-session follow-up, `default_profile` + `/profile`
+  (hot-reload).
+  *Done when:* summon → ask → read → follow-up → `/capture` re-look → `/profile` switch
+  → quit works end-to-end; `run_test` pilots pass; `bin/ci` green.
 - **C — widen.** `active-window` + `region` capture modes; a second real profile; the
   Hyprland keybind + float window-rule documented in the README.
   *Done when:* all three capture modes exercised by tests; docs updated.
@@ -132,5 +147,6 @@ about what's on screen" are the same mechanism; only the profile's prompt differ
 ## 7. Out of scope (YAGNI — flag if a change drifts here)
 
 `wlr-layer-shell` overlay, always-on HUD, exclusive-fullscreen coverage, voice input,
-text-only-without-capture mode, a persistent daemon, a general slash-command
-framework, provider abstraction (the proxy already provides it).
+a persistent daemon, a general slash-command framework, provider abstraction (the
+proxy already provides it). The **screenshot hotkey** that stages a `/capture` without
+typing it is Milestone C, not B.

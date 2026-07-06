@@ -84,11 +84,21 @@ decisions).
 
 ## Decisions already locked (do not relitigate)
 
-- Follow-up never re-captures; `/profile` switch affects the **next** ask only.
-- Only `/profile` exists; no command framework.
 - Streaming on; **fresh session per invocation** (history lives only for the popup).
 - Vision/model default `kimi-k2.7`, per-profile override — a config knob, not code.
 - Key handling is done in `config.resolve_api_key`; B reuses it untouched.
+
+> **Revised during implementation (authoritative: spec §5).** Two bullets above were
+> changed after a maintainer review, so B ships the interaction the tool is actually
+> for — not the first sketch:
+> - **Capture is an attachment model, not auto-only.** `/capture` stages a screenshot
+>   sent with the next message; a plain message (no new shot) is the follow-up; a new
+>   `/capture` is the re-look. `auto_capture` (config, default `true`) gates the launch
+>   shot. So there are **two** commands now (`/profile`, `/capture`) — still not a
+>   framework. The screenshot *hotkey* remains a Milestone C item.
+> - **`/profile` hot-reloads.** Each send rebuilds `[system(active profile)] + history
+>   + turn`, so a switch applies the new prompt/model from the next message (history is
+>   kept, not rewritten). Rationale + mitigations: architecture-decisions.md, Decision 3.
 
 ## Testing (TDD, offline)
 
