@@ -75,11 +75,14 @@
   any real test failure and enforces strictly the moment the first test lands.
 - Runtime deps (textual, openai, pillow) are declared in `pyproject.toml` only once code
   imports them — `dependencies` is intentionally empty during planning.
-- The TUI runs in a floating terminal — float it with a Hyprland window rule (note the exact
-  rule here once pinned). The later `wlr-layer-shell` overlay (GTK4 + gtk4-layer-shell) is what
-  will draw above fullscreen; don't reach for it until the TUI MVP proves the idea.
+- The TUI runs in a floating terminal — launch it under a dedicated class (`foot
+  --app-id=ai-overlay`) and float/pin/center it with `windowrulev2 = ..., class:^(ai-overlay)$`
+  (pinned in README "Hyprland setup"). The later `wlr-layer-shell` overlay (GTK4 +
+  gtk4-layer-shell) is what will draw above fullscreen; don't reach for it until the TUI MVP
+  proves the idea.
 - The LiteLLM proxy must be running for the app to work; a failed call should say so loudly.
 - The API key comes only from env (`AI_OVERLAY_API_KEY` → `OPENAI_API_KEY`); the proxy rejects
   the `sk-noop` placeholder. A Hyprland-keybind `exec` does NOT inherit your interactive shell
-  env — decide in B/C how the launched app gets the key (Hyprland `env =`, or a gitignored env
-  file the app loads). Never commit the key.
+  env — **resolved in Milestone C** (architecture-decisions Decision 4): put the token in the
+  compositor env via a gitignored Hyprland `source`d `env =` include (preferred), or set a raw
+  `api_key` in the app config (fallback). See README "Hyprland setup". Never commit the key.
