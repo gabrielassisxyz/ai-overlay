@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+import pytest
 from openai import OpenAIError
 from textual.widgets import Input, Markdown, Static
 
@@ -228,5 +229,63 @@ def test_escape_quits(tmp_path):
             await pilot.press("escape")
             await pilot.pause()
             assert app._exit is True
+
+    asyncio.run(scenario())
+
+
+def test_screenshot_hotkey_stages_a_shot_like_capture(tmp_path):
+    """F2 stages a screenshot without typing /capture (Milestone C, spec §5/§7)."""
+    client = FakeClient(deltas=["done"])
+
+    async def scenario():
+        # auto_capture off so the launch takes no shot — the hotkey is the only capture.
+        app, calls = _make_app(tmp_path, client=client, auto_capture=False)
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            assert calls["captures"] == []
+
+            await pilot.press("f2")
+            await app.workers.wait_for_complete()
+            assert calls["captures"] == [("fullscreen", 1280)]
+            assert app.pending_image == b"png-bytes"
+            assert "attached" in _statics_text(app)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("mode", ["active-window", "region"])
+def test_launch_honors_the_profile_capture_mode(tmp_path, mode):
+    """The TUI passes the active profile's mode straight to capture — so active-window
+    and region are exercised end-to-end, not just at the capture unit (Milestone C)."""
+    (tmp_path / "p.md").write_text("prompt", encoding="utf-8")
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        f"""
+        default_profile = "p"
+        [profiles.p]
+        system_prompt_file = "{tmp_path / "p.md"}"
+        capture = "{mode}"
+        """,
+        encoding="utf-8",
+    )
+    config = load_config(config_path)
+    captured: list[str] = []
+
+    def fake_capture(m, *, max_width):
+        captured.append(m)
+        return b"png-bytes"
+
+    app = OverlayApp(
+        config,
+        config.resolve(None),
+        capture=fake_capture,
+        client=FakeClient(deltas=["ok"]),
+        initial_question=None,
+    )
+
+    async def scenario():
+        async with app.run_test():
+            await app.workers.wait_for_complete()
+            assert captured == [mode]
 
     asyncio.run(scenario())

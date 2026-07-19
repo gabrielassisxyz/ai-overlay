@@ -5,8 +5,9 @@ screenshot is staged as a pending attachment and sent together with your message
 
 - ``auto_capture`` on (default): launch captures + sends immediately (summon-and-ask).
 - ``auto_capture`` off: launch opens idle; ``/capture`` stages a shot on demand.
-- ``/capture`` (re)captures per the active profile's mode and stages the image; the
-  next message sends it. A message with no fresh capture is a plain follow-up.
+- ``/capture`` (or the ``F2`` hotkey) (re)captures per the active profile's mode and
+  stages the image; the next message sends it. A message with no fresh capture is a
+  plain follow-up.
 - ``/profile <name>`` hot-reloads the active profile: every send rebuilds the payload
   as ``[system(active profile)] + history + turn``, so the new prompt and model take
   effect from the next message, keeping the conversation and the staged image.
@@ -43,7 +44,7 @@ from ai_overlay.llm import LLMError, build_user_turn, stream_reply
 CaptureFn = Callable[..., bytes]
 
 _ATTACH_PLACEHOLDER = "Attachment ready — type & send, or Enter to send just the shot…"
-_IDLE_PLACEHOLDER = "Message, /capture to attach a screenshot, or /profile…"
+_IDLE_PLACEHOLDER = "Message, /capture (or F2) to attach a screenshot, or /profile…"
 
 
 class OverlayApp(App):
@@ -68,9 +69,13 @@ class OverlayApp(App):
     """
 
     # Esc and Ctrl+C both quit (spec §5). Priority so the Input can't swallow Esc.
+    # F2 is the screenshot hotkey (spec §5/§7, Milestone C): stage a shot without typing
+    # /capture. The Input never consumes F-keys, so a plain (non-priority) binding
+    # reaches the app via normal bubbling.
     BINDINGS = [
         Binding("escape", "quit", "Quit", priority=True),
         Binding("ctrl+c", "quit", "Quit", priority=True),
+        Binding("f2", "capture", "Screenshot"),
     ]
 
     def __init__(
@@ -107,7 +112,9 @@ class OverlayApp(App):
             self._set_busy(True)
             self._worker_turn(self.initial_question or "", capture_first=True)
         else:
-            self._add_label("Ready. /capture to attach a screenshot, then type & send.")
+            self._add_label(
+                "Ready. /capture (or F2) to attach a screenshot, then type & send."
+            )
 
     # --- input handling -----------------------------------------------------
 
@@ -132,8 +139,7 @@ class OverlayApp(App):
         parts = raw.split()
         command = parts[0] if parts else ""
         if command == "capture":
-            self._set_busy(True)
-            self._worker_capture()
+            self._start_capture()
         elif command == "profile" and len(parts) == 1:
             self._list_profiles()
         elif command == "profile":
@@ -142,6 +148,21 @@ class OverlayApp(App):
             self._add_error(
                 f"Unknown command /{command or ''}. Commands: /profile, /capture."
             )
+
+    def action_capture(self) -> None:
+        """F2 hotkey: stage a shot like ``/capture`` without typing it (Milestone C)."""
+        self._start_capture()
+
+    def _start_capture(self) -> None:
+        """Stage a fresh screenshot for the next message. Shared by ``/capture`` and F2.
+
+        Guarded: if a turn or capture is already in flight the input is disabled, so a
+        second capture (e.g. the hotkey pressed mid-stream) is ignored, not raced.
+        """
+        if self.query_one("#prompt", Input).disabled:
+            return
+        self._set_busy(True)
+        self._worker_capture()
 
     def _list_profiles(self) -> None:
         lines = [

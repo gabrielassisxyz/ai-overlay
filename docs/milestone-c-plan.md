@@ -1,125 +1,94 @@
-# Milestone C plan — widen: Hyprland summon, capture modes, README
+# Milestone C plan — widen: Hyprland integration + screenshot hotkey
 
-> **For a fresh agent.** This doc is a pickup brief + plan for Milestone C. It assumes
-> **no memory of the prior sessions**. Read the orientation docs below first, then follow
-> the plan. The durable behavioral contract is [`spec.md`](spec.md) (esp. §3 capture, §5
-> interaction, §6-C acceptance); this file sequences the work and flags the risks — it does
-> not restate the contract.
+> **For a fresh agent.** Pickup brief + plan for Milestone C. Assumes **no memory of the
+> prior sessions**. Read the orientation docs below first, then follow the plan. The durable
+> behavioral contract is [`spec.md`](spec.md) (§3 capture, §5 interaction, §6-C acceptance,
+> §7 out-of-scope) — this file sequences the work; it does not restate the contract.
 
-## Orientation (read in this order, ~10 min)
+## Orientation (read in this order)
 
-1. [`../AGENTS.md`](../AGENTS.md) — how to work here: commands (`uv sync`, `bin/ci`,
-   `uv run pytest`), TDD rules, security habits, git conventions. **The "common hurdles"
-   list already records the two gotchas C must resolve:** the proxy must be running, and a
-   Hyprland-keybind `exec` **inherits no shell env** (so it can't see `AI_OVERLAY_API_KEY`).
-2. [`spec.md`](spec.md) — the contract. For C you mostly need **§3 (Capture)** and the
-   **§5** launch/interaction rules, plus **§6-C** for acceptance.
-3. [`architecture-decisions.md`](architecture-decisions.md) — Decision 3 (hotkey-summoned
-   panel) and its **"Refined in Milestone B"** note (attachment model + hot-reload). Don't
-   relitigate these.
+1. [`../AGENTS.md`](../AGENTS.md) — how to work here: `uv sync`, `bin/ci`, `uv run pytest`,
+   TDD, git conventions, and the **common hurdles** list (the keybind-env hurdle is the one
+   C finally closes).
+2. [`spec.md`](spec.md) — the contract. For C: **§3** (the three capture modes), **§5**
+   (the screenshot hotkey note), **§6-C** (acceptance), **§7** (what stays out).
+3. [`architecture-decisions.md`](architecture-decisions.md) — Decisions 1–3 are settled;
+   Decision 4 (how a keybind-launched process gets the proxy token) is **added in this
+   milestone**.
 
-Milestone B is **PR #3** (`https://github.com/gabrielassisxyz/ai-overlay/pull/3`); its plan
-+ revision note is [`milestone-b-plan.md`](milestone-b-plan.md).
+Milestones A and B are merged on `feature/mvp-tui` (see the git log). The B brief is
+[`milestone-b-plan.md`](milestone-b-plan.md).
 
-## What already exists (build on it, don't rebuild it)
+## What already exists (don't rebuild it)
 
-C is mostly **integration + docs**, not new core code. The mechanism is done:
+- **All three capture modes** are implemented in `ai_overlay/capture.py`
+  (`fullscreen` / `active-window` / `region`) and **unit-tested** in
+  `tests/test_capture.py`. The TUI already passes the active profile's mode to the
+  injected `capture` callable (`app.py` → `_worker_turn` / `_worker_capture`).
+- **Two real profiles** exist: `profiles/brotato.md` and `profiles/generic.md`.
+- `config.py` validates `capture` against `CAPTURE_MODES`, so a profile can already
+  select any of the three modes with zero code change.
 
-| Piece | State today | Notes for C |
-|---|---|---|
-| `capture.py` — `fullscreen` / `active-window` / `region` | **All three implemented and unit-tested** (`tests/test_capture.py`, named `FakeRunner`). | The argv-building is covered offline. What's missing is **live validation** and driving the non-fullscreen modes **through the TUI**. |
-| TUI attachment model | `/capture` stages a shot; `auto_capture` gates the launch shot; region/slurp already runs on the thread worker so it doesn't freeze the UI. | A profile with `capture = "region"` / `"active-window"` should already work end-to-end — verify it. |
-| `/profile` hot-reload, streaming, error surfacing | Done in B. | Untouched by C. |
-| Token precedence | `config.resolve_api_key`: `api_key` (raw) > `api_key_env` > env chain > placeholder. **Raw `api_key` already works for a keybind launch.** | C's job is to *decide + document* the delivery, not rebuild resolution. |
-
-Every external seam (`grim`/`slurp`/`hyprctl`, the LLM client) is dependency-injected —
-preserve that so tests stay offline.
-
-## Goal & done-check (spec §6-C)
-
-A Hyprland keybind summons the app, it floats/pins above the (windowed/borderless) game,
-captures per the active profile, and answers — with a documented setup a new user can
-follow. **Done when:** all three capture modes are exercised by tests **and** validated
-live; a second real profile exists; the keybind + float window-rule + token delivery are
-documented in a README; `bin/ci` green.
+So the formal §6-C "done when" (three modes exercised by tests) is met at the *unit* layer.
+C is about the pieces B explicitly deferred: the **Hyprland glue**, the **keybind token
+decision**, and the **in-app screenshot hotkey** — plus exercising the modes through the
+TUI and correcting stale docs.
 
 ## Scope of C (precise)
 
-- **Hyprland summon (the headline):**
-  - A keybind (`bind = SUPER, <key>, exec, …`) that launches the app on a chosen profile.
-  - A **window rule** that floats + pins the terminal so it sits above the game (record the
-    exact `windowrule`/`windowrulev2` in AGENTS.md's hurdles list *and* the README).
-  - **Token delivery to the keybind process** (the open AGENTS item — `exec` inherits no
-    env). Decide among: raw `api_key` in the local config (already supported), a Hyprland
-    `env = AI_OVERLAY_API_KEY,…` line, or a gitignored env file the app loads. **Recommend
-    one, document it, never commit a token.** If it needs code (e.g. load a dotenv), keep it
-    small and behind the existing `resolve_api_key` precedence.
-- **Capture modes — validate + wire, don't rewrite:**
-  - Confirm `active-window` and `region` work **through the TUI** (a profile per mode, or
-    `/capture` under each). Add a TUI-level test if the wiring isn't already covered.
-  - Live-check on the real compositor (can't be a unit test — note results in AGENTS.md).
-- **A second real profile** beyond `generic`/`brotato`, proving the mechanism generalizes
-  (pick a genuinely different task; add its `profiles/*.md` + a `[profiles.*]` block in
-  `config.example.toml`).
-- **README** (currently none): what it is, setup (`uv sync`, config, proxy, token), the
-  Hyprland keybind + window rule, and the interaction (attachment model, `/capture`,
-  `/profile`, `auto_capture`). Use PR #2/#3 as the house style for tone.
+1. **Screenshot hotkey (`app.py`).** A Textual key binding (`F2`) that stages a screenshot
+   exactly like `/capture`, so the user re-looks without typing the command (spec §5 note,
+   §7 lists this as the C item). Guard it so it can't fire while a turn/capture is already
+   in flight. Mention it in the idle help line and the input placeholder. It is **not** a
+   global/daemon hotkey (that's out of scope §7 — the app is a fresh popup per invocation);
+   it's an in-app binding.
+2. **Exercise all three modes through the TUI (`tests/test_app.py`).** `fullscreen` is
+   already covered by the launch test. Add: (a) the hotkey stages a shot; (b) the app passes
+   `active-window` and `region` straight through to the capture callable. Keep the offline
+   rule — a fake `capture` records the mode; no real `grim`/`slurp`.
+3. **Hyprland setup docs (`README.md`).** A "Hyprland setup" section: the `bind =` keybind
+   (default profile + a `--profile` variant), the float/pin/center `windowrule`s targeting
+   the overlay terminal by class, and how the launched process receives the proxy token.
+   Also fix the stale bits: the "planning — no code yet" status block and the
+   `Stack: Python + PyQt6` row (it's Python + Textual — Decision 1).
+4. **Token-to-keybind decision (`architecture-decisions.md`, `AGENTS.md`).** A Hyprland
+   `exec` keybind inherits **no** interactive-shell env, so `$AI_OVERLAY_API_KEY` is empty
+   under a keybind launch. Record the resolution as **Decision 4** and close the open item
+   there and the matching `AGENTS.md` hurdle. **No code** — `config.resolve_api_key` already
+   supports the env chain and a raw `api_key`; C only decides + documents which path to use.
+5. **`config.example.toml`.** Show the `capture = "active-window" | "region"` option and a
+   one-line pointer to the keybind-token note.
 
-## The main technical risk — a global screenshot hotkey vs. a launch-per-summon model
+Decision 4 (recommended path, plaintext trade-off flagged for a single-user machine):
+- **Preferred:** put the token in the compositor env via a **gitignored** Hyprland include
+  (`env = AI_OVERLAY_API_KEY,<token>` in a `source`d secrets file). Keeps the token out of
+  both this repo and the app's own config file; inherited by every `exec` child.
+- **Fallback:** a raw `api_key` in `~/.config/ai-overlay/config.toml` (already supported) —
+  self-contained, simplest, plaintext in the app config.
 
-Your stated end goal is *"leave the overlay open, press a hotkey to attach a fresh
-screenshot."* That is **harder than it looks** and forces a fork C must decide, not assume:
+## Out of scope for C (stays out — spec §7)
 
-- **Launch-per-summon (recommended for C):** the keybind starts a fresh instance that
-  captures on launch (`auto_capture`); re-looking within that session is the typed
-  `/capture`. No IPC, no daemon — fits KISS/YAGNI and closes §6-C. The global "hotkey adds a
-  shot to an already-open overlay" stays a later rock.
-- **Persistent overlay + global hotkey (the bigger phase):** a long-lived instance that a
-  *second* Hyprland keybind signals to `/capture` while the **game** is focused. The app
-  can't receive that keypress directly (it's not focused), so this needs **IPC** — a socket
-  / named pipe the app listens on, poked by a tiny `exec` command. Real design surface;
-  likely its own milestone (call it D), not a bullet in C.
+`wlr-layer-shell` overlay, always-on HUD, a persistent daemon / global re-capture hotkey,
+exclusive-fullscreen coverage, voice input, a general slash-command framework, a provider
+abstraction. Do **not** invent extra profiles — two real ones already exist; the modes get
+exercised via tests + docs, not by adding profiles nobody asked for.
 
-**Flag this to the maintainer and pick before building.** Don't silently build the IPC.
+## Done-check (spec §6-C)
 
-## Decisions already locked (do not relitigate)
+- `F2` stages a screenshot in the running TUI (no `/capture` typed); a pilot test proves it.
+- Pilot tests exercise `active-window` and `region` through the app (fullscreen already is).
+- README documents the keybind + float/pin window-rule + the token path; stale status/stack
+  bits corrected.
+- Decision 4 recorded; the `AGENTS.md` keybind-env hurdle closed.
+- `bin/ci` green.
 
-- Windowed/borderless games only; no exclusive-fullscreen coverage, no `wlr-layer-shell`
-  overlay (that's the deliberate later phase).
-- Attachment model + `/profile` hot-reload are settled (B); C does not change interaction.
-- Model default `kimi-k2.7`, per-profile override — a config knob.
-- Talk only to the proxy on localhost; no direct-vendor call.
+## Conventions (from AGENTS.md — don't rediscover)
 
-## Testing (TDD, offline)
-
-- **Keep the "no real `grim`/`slurp`/`hyprctl`, no network" rule.** Hyprland/compositor
-  behavior can't be unit-tested — validate it **live** and record the outcome + exact
-  window rule in AGENTS.md; don't fake a green test for it.
-- Add tests only where there's real logic: any dotenv/token-loading code, and TUI-level
-  coverage that a `region`/`active-window` profile stages + sends (inject the fake capture,
-  assert the mode reaches `capture`).
-- `bin/ci` green before "done".
-
-## Out of scope for C (YAGNI — flag if a change drifts here)
-
-`wlr-layer-shell`/GTK4 overlay, always-on HUD, exclusive-fullscreen, voice, a persistent
-daemon, a general command framework, provider abstraction. The **persistent-overlay global
-screenshot hotkey (with IPC)** is likely its own milestone — keep it out of C unless the
-maintainer explicitly pulls it in.
-
-## Conventions & workflow (from AGENTS.md — don't rediscover)
-
-- Branch `feature/…` off `master`; small conventional commits; PR to `master` with
-  **what + why**. Commit/PR text is **English, no AI/tool attribution** (see PR #2/#3).
-- Deps via `uv add`; ruff (line length 88); `bin/ci` must be green; the gitleaks pre-commit
-  hook is active after `bin/install-hooks`. Never commit the proxy token.
+Work on `feature/mvp-tui`; small conventional commits; PR to `master` with **what + why**.
+All file content **English, no AI/tool attribution**. Deps via `uv add`; ruff (line length
+88); `bin/ci` green before "done"; gitleaks pre-commit hook active after `bin/install-hooks`.
 
 ## Suggested skills
 
-- **`readme-writing`** — for the README (this is the first user-facing doc).
-- **`omarchy`** — for the Hyprland keybind, window rule, and screenshot-hotkey wiring
-  (`~/.config/hypr/`), since the target is Omarchy.
-- **`/run`** / **`verify`** — drive the real summon → capture → answer flow on the
-  compositor; live validation is the point of C.
+- **`/run`** / **`verify`** — drive the real TUI to confirm `F2` re-looks end-to-end.
 - **`/code-review`** (medium/high) before the PR.
-- **Not applicable:** `tui-glamorous` (Go/Charmbracelet — this project is Python + Textual).

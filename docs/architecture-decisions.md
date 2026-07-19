@@ -234,6 +234,35 @@ maintainer settled them, so they are recorded here (the contract lives in spec �
 
 ---
 
+## Decision 4 — Proxy token under a Hyprland keybind (Milestone C)
+
+**Context.** A Hyprland `exec` keybind does not inherit the interactive-shell
+environment, so the app's normal `AI_OVERLAY_API_KEY` → `OPENAI_API_KEY` env chain
+(`config.resolve_api_key`) resolves to nothing under a keybind launch — the exact hurdle
+flagged since Milestone A. C had to decide how the launched process gets the token,
+*without* adding code (the config layer already supports every path below).
+
+### Options
+
+- **Compositor env via a gitignored Hyprland include** (`env = AI_OVERLAY_API_KEY,<token>`
+  in a `source`d secrets file). Inherited by every keybind child. Token stays out of this
+  repo and out of the app's own config file.
+- **Raw `api_key` in `~/.config/ai-overlay/config.toml`** — already supported; the app
+  reads it first (highest precedence). Self-contained, but plaintext in the app config.
+- **A secrets manager / keyring lookup at startup.** Rejected — YAGNI for a single-user
+  personal tool; adds a dependency and a failure mode for no present benefit.
+
+### Rationale
+
+Both shipped paths leave the token in plaintext *somewhere* on the machine; for a
+single-user personal tool the threat model doesn't justify a keyring. **Preferred: the
+gitignored compositor-env include** — it keeps the secret out of both git and the app
+config, and one `env =` line covers every profile. **Fallback: raw `api_key`** for anyone
+who'd rather keep everything in one file. Documented in the README ("Hyprland setup") and
+`config.example.toml`; no code change was needed. This closes the keybind-env open item.
+
+---
+
 ## Open items / risks
 
 - **Vision quality on dense UI is unproven** for `kimi-k2.7`/MoonViT. First real
