@@ -9,7 +9,7 @@
 - **Setup:** `uv sync` (creates `.venv` with dev tools) then `bin/install-hooks` (once).
 - **Run:** `uv run python -m ai_overlay [--profile <name>] [question]` launches the TUI; add `--print` for the headless one-shot (streams the answer to stdout, no TTY).
 - **Test:** `uv run pytest` (none yet — planning stage).
-- **All CI checks:** `bin/ci` (ruff format + lint, pytest, pip-audit).
+- **All CI checks:** `bin/ci` (ruff format + lint, pytest, pip-audit, litellm-proxy reachability probe — warns `SKIPPED` instead of failing where the proxy cannot exist, e.g. GitHub Actions).
 - **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write, host read-only, `~/.ssh`/`~/.gnupg`/`~/litellm` unreachable, `.env` masked) — pair it with dangerous permissions, e.g. `ai-jail claude --dangerously-skip-permissions`. Config: `.ai-jail`.
 
 ## Scope (current)
