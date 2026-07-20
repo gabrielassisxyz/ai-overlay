@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Deterministic secret gate: block any commit that stages a secret. A hook never
-# forgets, unlike the AGENTS.md reminder; CI re-scans so a `--no-verify` bypass is
-# still caught at the PR.
+# Deterministic gate: block a staged secret from ever reaching a commit.
+# The probabilistic counterpart (show `git diff --cached` before commit) lives in
+# AGENTS.md — this hook is the trava that survives forgetting.
 set -euo pipefail
 
 if ! command -v gitleaks >/dev/null 2>&1; then
-  echo "gitleaks not installed — https://github.com/gitleaks/gitleaks" >&2
-  exit 1
+    echo "gitleaks not installed — see https://github.com/gitleaks/gitleaks" >&2
+    exit 1
 fi
 
-gitleaks git --staged --no-banner --redact
+gitleaks protect --staged --no-banner
