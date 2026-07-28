@@ -26,3 +26,7 @@ system_prompt_file = "~/.config/ai-overlay/profiles/brotato.md"
 capture = "fullscreen"
 # capture = "active-window"    # e.g. grab just the game window, not the whole monitor
 # model = "gemini-3.5-flash"   # escalate to stronger vision if item reading is weak
+
+[profiles.grind-survivors]
+system_prompt_file = "~/.config/ai-overlay/profiles/grind-survivors.md"
+capture = "fullscreen"

@@ -35,8 +35,9 @@ A profile is a text file describing one task: the system prompt / context to inj
 
 ```
 profiles/
-  brotato.md        # context for Brotato builds; model: kimi-k2.7
-  <your-task>.md    # anything else you want an assistant for
+  brotato.md          # context for Brotato builds; model: kimi-k2.7
+  grind-survivors.md  # Grind Survivors: run choices, Forge decisions, build archetypes
+  <your-task>.md      # anything else you want an assistant for
 ```
 
 Each profile also picks its **capture mode** in `config.toml` — `fullscreen` (the focused monitor), `active-window` (the focused window only), or `region` (drag to select with `slurp`). See `config.example.toml`.

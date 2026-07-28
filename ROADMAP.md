@@ -7,7 +7,7 @@ What exists, what is missing, and what is deliberately out of scope. Details: [R
 - **Core loop** — screenshot capture → local LiteLLM proxy (OpenAI-compatible, `localhost:4000`) → streamed multimodal answer.
 - **Textual TUI (the MVP surface)** — streaming answer pane, input box, the attachment model (`/capture` stages a shot sent with the next message; `auto_capture` gates the launch shot), in-session follow-up, `/profile` hot-reload, `F2` re-capture.
 - **Three capture modes** — `fullscreen`, `active-window`, `region` (`slurp`), selectable per profile and unit-tested.
-- **Profiles** — task behavior lives in `profiles/*.md` plus a TOML block in the user config; a new use case is a new text file, no code change. Two real profiles exist (`brotato`, `generic`).
+- **Profiles** — task behavior lives in `profiles/*.md` plus a TOML block in the user config; a new use case is a new text file, no code change. Three real profiles exist (`brotato`, `grind-survivors`, `generic`).
 - **Hyprland integration** — keybind launch in a dedicated floating terminal, float/pin/center window rules, and a documented path for getting the proxy token to keybind-launched processes (README "Hyprland setup").
 - **Harness** — `bin/ci` (ruff format + lint, pytest, pip-audit, proxy reachability probe), gitleaks pre-commit hook, matching GitHub Actions workflow.
 
