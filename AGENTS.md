@@ -12,7 +12,7 @@
 - **Run:** `uv run python -m ai_overlay [--profile <name>] [question]` launches the TUI; add `--print` for the headless one-shot (streams the answer to stdout, no TTY).
 - **Test:** `uv run pytest`.
 - **All CI checks:** `bin/ci` (ruff format + lint, pytest, pip-audit, litellm-proxy reachability probe, soft-wrap check, prose gate). The proxy probe warns `SKIPPED` rather than failing where the proxy cannot exist, such as GitHub Actions.
-- **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write, host read-only, `~/.ssh`/`~/.gnupg`/`~/litellm` unreachable, `.env` masked) — pair it with dangerous permissions, e.g. `ai-jail claude --dangerously-skip-permissions`. Config: `.ai-jail`.
+- **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write, host read-only, ssh and gpg keys and any unrelated home directory unreachable, `.env` masked). Pair it with dangerous permissions, e.g. `ai-jail claude --dangerously-skip-permissions`. Its `.ai-jail` config is per machine and gitignored, so a fresh clone has none: generate one with `ai-jail --clean --init`.
 
 ## Scope (current)
 - **Current scope:** planning-stage MVP — a personal, local-only hotkey-summoned TUI that captures the screen and asks the LLM about it. Two framings — "advise on my build/deck" and "answer a question about what's on screen" — are the SAME mechanism: capture + a per-task profile prompt → a streamed answer, with in-session follow-up. Profiles are TOML blocks in `~/.config/ai-overlay/config.toml` pointing at prompt files under `profiles/*.md`; each profile sets its capture mode (fullscreen / active-window / region). Invocation is a Hyprland keybind calling the entrypoint with `--profile`.

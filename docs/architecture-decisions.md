@@ -66,7 +66,7 @@ Honest caveat that still holds: "accepts image input" is not the same as "reads 
 #### Local LiteLLM proxy — chosen
 
 Pros:
-- Reuses existing routing, API keys, and failover already configured in `~/litellm` — nothing new to wire up.
+- Reuses whatever routing, API keys and failover the proxy is already configured with, so there is nothing new to wire up for anyone who already runs one.
 - OpenAI-compatible endpoint: the app uses one standard client and stays vendor-agnostic by construction.
 - The model is a per-profile parameter; swapping `kimi-k2.7` → `gemini-3.5-flash` needs no code change.
 - Keys live in the proxy, not scattered in the app.
