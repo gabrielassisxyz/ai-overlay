@@ -6,11 +6,7 @@ set -euo pipefail
 echo "==> ruff format"; uv run ruff format --check .
 echo "==> ruff lint";   uv run ruff check .
 
-echo "==> test"
-# Planning stage: no tests yet. pytest exits 5 when it collects nothing; treat ONLY
-# that as OK. A real failure (exit 1) still fails CI. This flips to strict the moment
-# the first test lands — no edit needed here.
-uv run pytest || { code=$?; [ "$code" -eq 5 ] || exit "$code"; echo "    (no tests collected yet)"; }
+echo "==> test";         uv run pytest
 
 echo "==> audit";       uv run pip-audit
 
@@ -24,5 +20,19 @@ if curl -sf --max-time 3 http://localhost:4000/v1/models >/dev/null 2>&1; then
 else
     echo "    SKIPPED (litellm proxy not reachable — needed for integration runs)"
 fi
+
+echo "==> markdown is soft-wrapped"
+# One paragraph, one line. Rewrapping belongs to whatever renders the text, since that is
+# the only thing that knows the reader's width. It is a gate rather than a written rule
+# because hard wrap spreads by contact: every editor and agent inherits the wrap of the
+# file it is editing. It also prevents a real defect, where a break landing in front of
+# `#`, `-`, `>` or `1.` turns the continuation into a block.
+python3 scripts/md-unwrap.py --check .
+
+# Last, so a prose finding never hides a broken build. --diff and not a tree scan: this
+# repo had prose before the gate, so a tree scan would be red on install and stay red,
+# which is the failure mode of every signal that never changes state. This way existing
+# text is left alone and nothing new can add a tell.
+echo "==> slop-guard"; bin/slop-guard --diff "${SLOP_GUARD_BASE:-origin/master}"
 
 echo "CI green."

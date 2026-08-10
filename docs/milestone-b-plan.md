@@ -79,5 +79,5 @@ Summon → the app captures per the active profile and streams an answer → typ
 - **`/run`** and **`verify`** — drive the actual TUI to confirm the summon→ask→follow-up flow works, not just the unit tests.
 - **`/code-review`** (medium/high) before opening the PR.
 - **`research-software`** — if you need current Textual patterns for **threaded workers + streaming updates** and the `run_test` pilot API; verify against installed version, not memory.
-- **`claude-api`** — reference for OpenAI-compatible **streaming** semantics if you touch the LLM path (we call it through the proxy; you shouldn't need to, but useful if deltas misbehave).
+- **`claude-api`**: reference for OpenAI-compatible **streaming** semantics when touching the LLM path (the call goes through the proxy, so this is rarely needed, but useful if deltas misbehave).
 - **Not applicable:** `tui-glamorous` (that's Go / Charmbracelet — this project is Python + Textual). Ignore any hook that suggests it.

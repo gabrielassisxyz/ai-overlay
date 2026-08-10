@@ -22,6 +22,11 @@ dev = [
 
 [tool.ruff]
 target-version = "py312"
+# Vendored from llm-workflow and kept byte-identical, which the harness checker verifies
+# by checksum. Formatting it here would put this copy permanently out of sync with the
+# source it is checked against, so the file is excluded rather than reformatted. Anything
+# this repo actually authors stays linted.
+extend-exclude = ["scripts/md-unwrap.py"]
 
 [tool.ruff.lint]
 # Starter set: pyflakes (F), pycodestyle (E), isort (I), bugbear (B), pyupgrade (UP).
