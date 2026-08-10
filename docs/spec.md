@@ -61,6 +61,7 @@ A hotkey-summoned Textual TUI that captures the screen, sends it to an LLM (via 
 - Downscale to `max_image_width` before returning (Pillow), re-encode PNG, then base64 for the LLM message.
 - **Privacy:** image bytes are never logged and never written to disk outside a temp path the user controls. Downscale happens before anything leaves the process.
 - The subprocess runner is injected so tests use a named fake — **tests never call real `grim`/`slurp`/`hyprctl`.**
+- **Capture failures name the environment, not just the exit code.** A missing binary names the packages that provide it. A command that exits non-zero keeps its own stderr, which identifies the failing step, and adds that capture needs a Wayland session the process can reach: it fails over SSH, under X11, and whenever `WAYLAND_DISPLAY` or `XDG_RUNTIME_DIR` are not inherited, which is the case a keybind or a systemd unit hits.
 
 ---
 
@@ -69,7 +70,7 @@ A hotkey-summoned Textual TUI that captures the screen, sends it to an LLM (via 
 - OpenAI-compatible `openai` client, `base_url` from config, key from env (§2). **Only** talks to `base_url` (localhost). Any change adding a direct-vendor call or a new outbound host must be flagged.
 - Messages: `system` = the profile prompt; `user` = optional text + the image as an `image_url` with a base64 `data:` URL.
 - `stream_reply(messages) -> Iterator[str]` yields text deltas as they arrive.
-- **Errors fail loudly, actionably:** proxy unreachable / non-2xx → a message that names the likely cause ("is the LiteLLM proxy running on localhost:4000?"), not a raw traceback swallowed silently.
+- **Errors fail loudly, and say which case they are in.** The two failures point at opposite causes, so they are never reported as one. *Unreachable* names the configured `base_url` and asks about reachability. *Answered with a non-2xx* reports the model, the status code and what the endpoint itself said, and says nothing about the endpoint being down, since it answered. Never a raw traceback swallowed silently.
 - The `openai` client is injected so tests use a fake — **tests never hit the network.**
 
 ---

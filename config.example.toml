@@ -4,7 +4,7 @@
 default_profile = "generic"
 
 # base_url = "http://localhost:4000/v1"   # LiteLLM proxy (default)
-# model = "kimi-k2.7"                      # default model; a profile may override
+# model = "kimi-k2.7"                      # must exist on your endpoint; profiles override
 # max_image_width = 1280                   # screenshot downscaled to this width
 # auto_capture = true                      # true: capture + send on launch (summon-and-ask).
 #                                          # false: open idle; stage a shot with /capture.
