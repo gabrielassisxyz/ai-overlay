@@ -10,6 +10,19 @@ The first target use case is **games** (Brotato, Bounty of One, Vampire Survivor
 
 > **Status:** MVP working end to end. The core loop (capture → LiteLLM → streamed answer), the Textual TUI (attachment model, in-session follow-up, `/profile` hot-reload) and the Hyprland keybind launch (see [Hyprland setup](#hyprland-setup)) are all in place. What is still missing, and what is deliberately out of scope, is in [ROADMAP.md](ROADMAP.md). Design rationale: [docs/architecture-decisions.md](docs/architecture-decisions.md); behavioral contract: [docs/spec.md](docs/spec.md).
 
+## This repository is the shared core
+
+Two applications are being built on top of it, each getting a repository of its own:
+
+- **[wisp-assistant](https://github.com/gabrielassisxyz/wisp-assistant)**, the general case: ask an LLM about whatever happens to be on screen. *That repository does not exist yet, so the link is dead for now.*
+- **grimoire**, for games, where the advice comes from a catalogue, tracked run state and a ranker rather than from a prompt alone. *Also not created yet.*
+
+The core owns what both of them need: screen capture, the LLM client, settings, and the summoned overlay shell. Both leaves are summoned overlays, so the shell is shared and only the view differs; neither leaf depends on the other.
+
+That boundary is provisional on purpose. If the `wlr-layer-shell` panel gets built, a shared repository earns its keep. If it never does, the core stays small enough to be absorbed into `wisp-assistant`, leaving `grimoire` to copy the two modules it actually uses.
+
+The extraction has not happened yet. What is in this repository today is the whole working tool, TUI and example profiles included, which is what the rest of this README describes.
+
 ## Install
 
 You need Linux with a Wayland compositor (developed against Hyprland), [`uv`](https://docs.astral.sh/uv/), and the `grim` and `slurp` capture tools. Most Wayland distributions package the latter two; on Arch they are `pacman -S grim slurp`.

@@ -16,6 +16,7 @@ What exists, what is missing, and what is deliberately out of scope. Details: [R
 - **`wlr-layer-shell` overlay** — a GTK4 + gtk4-layer-shell transparent panel that draws above even fullscreen apps. The intended "make it right" surface; deliberately deferred until the TUI proves the idea.
 - **Vision escalation** — add stronger vision models to the proxy if dense-UI reading with the default model proves weak.
 - **More profiles** — grow the profile library as real tasks appear; the mechanism needs no code change.
+- **Extraction into a core plus leaf applications:** `wisp-assistant` takes the TUI, the chat view and the profiles, `grimoire` becomes a separate game framework, and this repository keeps capture, the LLM client, settings and the overlay shell. The README section "This repository is the shared core" has the boundary and why it is provisional.
 
 ## Deliberately out of scope
 
