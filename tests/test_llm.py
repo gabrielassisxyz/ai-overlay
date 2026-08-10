@@ -9,10 +9,20 @@ from __future__ import annotations
 import base64
 from types import SimpleNamespace
 
+import httpx
 import pytest
-from openai import OpenAIError
+from openai import APIConnectionError, APIStatusError, OpenAIError
 
 from ai_overlay import llm
+
+_REQUEST = httpx.Request("POST", "http://localhost:4000/v1/chat/completions")
+
+
+def _status_error(status: int, message: str) -> APIStatusError:
+    """An error the endpoint *answered* with, as opposed to one reaching it."""
+    return APIStatusError(
+        message, response=httpx.Response(status, request=_REQUEST), body=None
+    )
 
 
 def _chunk(content: str | None):
@@ -24,8 +34,14 @@ def _chunk(content: str | None):
 class FakeClient:
     """Records the create() kwargs and replays canned chunks (or raises)."""
 
-    def __init__(self, chunks=None, error: Exception | None = None):
+    def __init__(
+        self,
+        chunks=None,
+        error: Exception | None = None,
+        base_url: str = "http://localhost:4000/v1",
+    ):
         self.create_kwargs: dict | None = None
+        self.base_url = base_url
         self._chunks = chunks or []
         self._error = error
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
@@ -73,8 +89,37 @@ def test_stream_reply_joins_deltas_and_skips_empty():
     assert client.create_kwargs["stream"] is True
 
 
-def test_stream_reply_wraps_proxy_error_loudly():
-    client = FakeClient(error=OpenAIError("connection refused"))
+def test_unreachable_endpoint_names_the_configured_url_not_a_hardcoded_one():
+    """A user who moved `base_url` must be sent to the endpoint they configured."""
+    client = FakeClient(
+        error=APIConnectionError(request=_REQUEST), base_url="http://localhost:9999/v1"
+    )
 
-    with pytest.raises(llm.LLMError, match="LiteLLM proxy running on localhost:4000"):
+    with pytest.raises(llm.LLMError) as caught:
+        list(llm.stream_reply(client, "kimi-k2.7", []))
+
+    assert "http://localhost:9999/v1" in str(caught.value)
+    assert "4000" not in str(caught.value)
+
+
+def test_rejected_call_reports_the_endpoints_answer_not_a_reachability_guess():
+    """The commonest stranger failure: a live endpoint that lacks the model."""
+    client = FakeClient(error=_status_error(404, "model kimi-k2.7 not found"))
+
+    with pytest.raises(llm.LLMError) as caught:
+        list(llm.stream_reply(client, "kimi-k2.7", []))
+
+    message = str(caught.value)
+    assert "model kimi-k2.7 not found" in message
+    assert "404" in message
+    assert "kimi-k2.7" in message
+    # The endpoint answered, so suggesting it might be down sends the reader away
+    # from the actual cause.
+    assert "running" not in message
+
+
+def test_other_client_errors_still_surface_loudly():
+    client = FakeClient(error=OpenAIError("something else broke"))
+
+    with pytest.raises(llm.LLMError, match="something else broke"):
         list(llm.stream_reply(client, "kimi-k2.7", []))
