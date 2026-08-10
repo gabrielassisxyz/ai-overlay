@@ -9,7 +9,7 @@ What exists, what is missing, and what is deliberately out of scope. Details: [R
 - **Three capture modes** — `fullscreen`, `active-window`, `region` (`slurp`), selectable per profile and unit-tested.
 - **Profiles** — task behavior lives in `profiles/*.md` plus a TOML block in the user config; a new use case is a new text file, no code change. Two real profiles exist (`brotato`, `generic`).
 - **Hyprland integration** — keybind launch in a dedicated floating terminal, float/pin/center window rules, and a documented path for getting the proxy token to keybind-launched processes (README "Hyprland setup").
-- **Harness** — `bin/ci` (ruff format + lint, pytest, pip-audit, proxy reachability probe), gitleaks pre-commit hook, matching GitHub Actions workflow.
+- **Harness:** `bin/ci` (ruff format + lint, pytest, pip-audit, proxy reachability probe, markdown soft-wrap check, prose gate), gitleaks pre-commit hook, matching GitHub Actions workflows.
 
 ## Missing / natural next steps
 
