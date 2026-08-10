@@ -15,7 +15,7 @@
 - **Sandbox (optional):** `ai-jail claude` runs the agent OS-fenced (project read-write, host read-only, ssh and gpg keys and any unrelated home directory unreachable, `.env` masked). Pair it with dangerous permissions, e.g. `ai-jail claude --dangerously-skip-permissions`. Its `.ai-jail` config is per machine and gitignored, so a fresh clone has none: generate one with `ai-jail --clean --init`.
 
 ## Scope (current)
-- **Current scope:** planning-stage MVP — a personal, local-only hotkey-summoned TUI that captures the screen and asks the LLM about it. Two framings — "advise on my build/deck" and "answer a question about what's on screen" — are the SAME mechanism: capture + a per-task profile prompt → a streamed answer, with in-session follow-up. Profiles are TOML blocks in `~/.config/ai-overlay/config.toml` pointing at prompt files under `profiles/*.md`; each profile sets its capture mode (fullscreen / active-window / region). Invocation is a Hyprland keybind calling the entrypoint with `--profile`.
+- **Current scope:** a personal, local-only hotkey-summoned TUI that captures the screen and asks the LLM about it. The MVP works end to end; what is missing and what is deliberately out of scope live in `ROADMAP.md`. Two framings, "advise on my build/deck" and "answer a question about what's on screen", are the SAME mechanism: capture + a per-task profile prompt → a streamed answer, with in-session follow-up. Profiles are TOML blocks in `~/.config/ai-overlay/config.toml` pointing at prompt files under `profiles/*.md`; each profile sets its capture mode (fullscreen / active-window / region). Invocation is a Hyprland keybind calling the entrypoint with `--profile`.
 - Don't expand beyond it without a present need: no persistent/always-on HUD, no `wlr-layer-shell` overlay yet (deliberate later phase), no exclusive-fullscreen support, no voice, no text-only-without-capture mode, no provider abstraction (the proxy already gives that). If a change drifts past it, STOP and flag it.
 
 <!-- BEGIN universal-principles v3 -->
@@ -85,6 +85,8 @@
 
 ## Common hurdles (append as discovered)
 - The prose gate runs in `--diff` mode against `origin/master`, so text written before the gate existed is left alone and only new lines are judged. Override the base with `SLOP_GUARD_BASE` when a branch forks from somewhere else.
+- A line you *edit* is an added line to that gate. Existing prose here is full of em-dashes and passes untouched, but rewriting half of such a line fails until the em-dash goes too, so write replacement text without one. This also applies to a branch based on a stale `master`: sync the base first, or every line the base is missing counts as yours.
+- Profiles and the config are read from `~/.config/ai-overlay`, never from the clone, so both have to be copied out of it once (README "Install"). Editing `profiles/*.md` in the repo changes nothing at runtime until it is copied.
 - Runtime deps are declared in `pyproject.toml` only once code imports them, so the harness carries only what is in use.
 - The TUI runs in a floating terminal — launch it under a dedicated class (`foot --app-id=ai-overlay`) and float/pin/center it with `windowrulev2 = ..., class:^(ai-overlay)$` (pinned in README "Hyprland setup"). The later `wlr-layer-shell` overlay (GTK4 + gtk4-layer-shell) is what will draw above fullscreen; don't reach for it until the TUI MVP proves the idea.
 - The LiteLLM proxy must be running for the app to work; a failed call should say so loudly.
