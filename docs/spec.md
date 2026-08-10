@@ -1,10 +1,10 @@
 # SPEC — ai-overlay MVP
 
-**What this doc is:** the *behavioral contract* — what each piece must do, precisely enough that any agent implementing a slice has one source of truth instead of inferring from prose. It is **living**: update it when a milestone teaches us something.
+**What this doc is:** the *behavioral contract*, stating what each piece must do precisely enough that any agent implementing a slice has one source of truth instead of inferring from prose. It is **living**: update it when a milestone teaches something new.
 
 **What it is NOT** (to avoid three docs saying the same thing):
 - *How to work here* (commands, TDD, security, git) lives in [`../AGENTS.md`](../AGENTS.md).
-- *Why we chose the stack / LLM / overlay* lives in [`architecture-decisions.md`](architecture-decisions.md).
+- *Why the stack / LLM / overlay were chosen* lives in [`architecture-decisions.md`](architecture-decisions.md).
 - This file owns the *what*: schemas, surfaces, and error semantics. When they disagree, this file is authoritative for behavior.
 
 ---

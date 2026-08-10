@@ -73,7 +73,7 @@ Pros:
 
 Cons:
 - Adds a hop (the proxy must be running).
-- The specific served model's vision quality depends on the backend (Ollama Cloud), which we don't control.
+- The specific served model's vision quality depends on the backend (Ollama Cloud), which this project does not control.
 
 #### Direct Claude API (vision)
 
@@ -89,7 +89,7 @@ Pros: free per use, fully private, no key, runs on the GPU. Cons: local vision i
 
 #### Provider abstraction from day one
 
-Pros: swap providers by config, flexible long term. Cons: extra code and a premature abstraction for an MVP (violates KISS/YAGNI). Rejected — but note the proxy *already provides* this abstraction for free, so we get the benefit without building it.
+Pros: swap providers by config, flexible long term. Cons: extra code and a premature abstraction for an MVP (violates KISS/YAGNI). Rejected, but note the proxy *already provides* this abstraction for free, so the benefit arrives without the code.
 
 ### Rationale
 
@@ -119,7 +119,7 @@ Pros: immersive, info always at hand, no summoning. Cons: covers part of the gam
 
 #### Cover exclusive fullscreen
 
-Pros: necessary *if* a game runs true exclusive fullscreen. Cons: on Wayland, overlaying exclusive fullscreen is the hard path (layer-shell, or forcing the game to borderless via a window rule) and inflates MVP scope for a problem we probably don't have. If a specific game needs it, the easy out is running that game in **borderless windowed** (available in most of them), and the summoned panel already covers it.
+Pros: necessary *if* a game runs true exclusive fullscreen. Cons: on Wayland, overlaying exclusive fullscreen is the hard path (layer-shell, or forcing the game to borderless via a window rule) and inflates MVP scope for a problem that probably does not exist here. If a specific game needs it, the easy out is running that game in **borderless windowed** (available in most of them), and the summoned panel already covers it.
 
 ### Rationale
 
