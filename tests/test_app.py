@@ -213,7 +213,8 @@ def test_llm_error_surfaces_without_crashing(tmp_path):
             await app.workers.wait_for_complete()
 
             assert "error:" in _statics_text(app)
-            assert "LiteLLM proxy" in _statics_text(app)
+            # The cause reaches the pane, not just the fact that something failed.
+            assert "connection refused" in _statics_text(app)
             # No assistant turn recorded, and the input is usable again.
             assert not any(m.get("role") == "assistant" for m in app.history)
             assert app.query_one("#prompt", Input).disabled is False

@@ -11,11 +11,11 @@ from __future__ import annotations
 import base64
 from collections.abc import Iterator
 
-from openai import OpenAI, OpenAIError
+from openai import APIConnectionError, APIStatusError, OpenAI, OpenAIError
 
 
 class LLMError(Exception):
-    """The proxy was unreachable or the completion call failed."""
+    """The endpoint could not be reached, or the call it answered failed."""
 
 
 def make_client(base_url: str, api_key: str) -> OpenAI:
@@ -65,7 +65,18 @@ def stream_reply(client: OpenAI, model: str, messages: list[dict]) -> Iterator[s
             delta = chunk.choices[0].delta.content
             if delta:
                 yield delta
-    except OpenAIError as err:
+    # Split by whether the endpoint answered at all, because the two cases send the
+    # reader to opposite places. Collapsing them is how a live proxy that simply does
+    # not serve the requested model gets reported as a proxy that is not running.
+    except APIConnectionError as err:
         raise LLMError(
-            f"LLM call failed. Is the LiteLLM proxy running on localhost:4000? ({err})"
+            f"Cannot reach the LLM endpoint at {client.base_url}. Is it running, and "
+            f"is base_url pointing at it? ({err})"
         ) from err
+    except APIStatusError as err:
+        raise LLMError(
+            f"The LLM endpoint at {client.base_url} refused the call for model "
+            f"{model!r} with HTTP {err.status_code}: {err.message}"
+        ) from err
+    except OpenAIError as err:
+        raise LLMError(f"LLM call failed: {err}") from err
