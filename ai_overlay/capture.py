@@ -29,12 +29,20 @@ def _default_run(argv: list[str]) -> bytes:
         result = subprocess.run(argv, capture_output=True, check=True)
     except FileNotFoundError as err:
         raise CaptureError(
-            f"Command not found: {argv[0]!r}. Is it installed? "
-            "(Omarchy ships grim/slurp.)"
+            f"Command not found: {argv[0]!r}. Capture needs `grim` and `slurp`, "
+            "packaged by most Wayland distributions (on Arch: `pacman -S grim slurp`); "
+            "`hyprctl` ships with Hyprland."
         ) from err
     except subprocess.CalledProcessError as err:
         detail = err.stderr.decode(errors="replace").strip() or f"exit {err.returncode}"
-        raise CaptureError(f"{argv[0]!r} failed: {detail}.") from err
+        # The tool's own stderr, then what it usually means. On its own, a line like
+        # "failed to create display" reads as a broken install rather than as a
+        # process that cannot see the compositor.
+        raise CaptureError(
+            f"{argv[0]!r} failed: {detail}. Capture needs a Wayland session this "
+            "process can reach, so it fails over SSH, under X11, and whenever "
+            "WAYLAND_DISPLAY or XDG_RUNTIME_DIR are not inherited."
+        ) from err
     return result.stdout
 
 
